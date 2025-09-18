@@ -1,0 +1,5 @@
+{
+  "name": "OutFitAI",
+  "description": "A virtual try-on application that uses AI to show you how clothes would look on you. Upload a photo of yourself and a photo of a clothing item to see the magic happen.",
+  "requestFramePermissions": []
+}
