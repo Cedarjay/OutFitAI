@@ -11,18 +11,18 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onToggleHistory }) => (
-  <header className="p-6 md:p-8 w-full max-w-7xl mx-auto bg-gradient-to-r from-pink-500 to-violet-600 rounded-xl shadow-lg mt-4 sm:mt-8">
-    <div className="flex justify-between items-center">
-        <div className="text-left">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-              OutFitAI
-            </h1>
-            <p className="text-lg font-semibold text-white opacity-90">Your Personal Virtual Fitting Room</p>
+  <header className="p-6 md:p-8 w-full bg-[linear-gradient(to_right,_#fed7aa,_#fbcfe8,_#bbf7d0,_#ddd6fe)] shadow-lg">
+    <div className="flex justify-between items-center max-w-7xl mx-auto">
+        <div className="flex items-center">
+            <div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-800">OutFitAI</h1>
+                <p className="text-sm sm:text-base text-slate-600 mt-1">Your Personal Virtual Try-On Stylist</p>
+            </div>
         </div>
-        <button
-            onClick={onToggleHistory}
-            className="p-2 text-white rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 transition-colors duration-200"
-            aria-label="Open creation history"
+        <button 
+            onClick={onToggleHistory} 
+            className="p-3 text-slate-800 rounded-full hover:bg-black/10 transition-colors duration-200"
+            aria-label="Toggle creation history"
         >
             <HistoryIcon />
         </button>
