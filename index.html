@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OutFitAI - Virtual Try-On</title>
+    <script>
+      // This script injects the Netlify environment variable into the window object
+      // so our application code can access it via process.env.API_KEY.
+      // Netlify's post-processing will replace the 'API_KEY' placeholder below
+      // with the actual value of the API_KEY environment variable during deployment.
+      window.process = {
+        env: {
+          API_KEY: 'API_KEY'
+        }
+      };
+    </script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
   <script type="importmap">
 {
@@ -46,6 +58,6 @@
 </head>
   <body class="bg-gray-100">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="text/babel" data-type="module" src="/index.tsx"></script>
   </body>
 </html>
