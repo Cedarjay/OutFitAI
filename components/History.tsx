@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { StylingSuggestions } from '../services/geminiService';
+import { StylingSuggestions } from '../services/geminiService.ts';
 
 export interface HistoryItem {
   id: string;

@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import ImageUploader from './components/ImageUploader';
-import LoadingSpinner from './components/LoadingSpinner';
-import History, { HistoryItem, TemplateItem } from './components/History';
-import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions } from './services/geminiService';
+import Header from './components/Header.tsx';
+import ImageUploader from './components/ImageUploader.tsx';
+import LoadingSpinner from './components/LoadingSpinner.tsx';
+import History, { HistoryItem, TemplateItem } from './components/History.tsx';
+import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions } from './services/geminiService.ts';
 
 interface BodyShapeResult {
   shape: string;
