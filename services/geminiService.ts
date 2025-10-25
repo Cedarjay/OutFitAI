@@ -1,11 +1,15 @@
 
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-  
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const API_KEY = process.env.API_KEY;
+
+// Check if the API key is present and not the placeholder value from index.html
+export const isApiKeySet = !!API_KEY && API_KEY !== 'API_KEY';
+
+// The GoogleGenAI constructor can handle a falsy or placeholder key; API calls will fail gracefully.
+// This prevents the app from crashing on load if the key isn't set.
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 interface TryOnResult {
   image: string | null;

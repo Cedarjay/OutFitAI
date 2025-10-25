@@ -4,7 +4,7 @@ import ImageUploader from './components/ImageUploader.tsx';
 import LoadingSpinner from './components/LoadingSpinner.tsx';
 import History, { HistoryItem, TemplateItem } from './components/History.tsx';
 import AdBanner from './components/AdBanner.tsx';
-import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions } from './services/geminiService.ts';
+import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions, isApiKeySet } from './services/geminiService.ts';
 
 interface BodyShapeResult {
   shape: string;
@@ -53,7 +53,28 @@ const RedoIcon: React.FC = () => (
     </svg>
 );
 
+const ApiKeyErrorScreen: React.FC = () => (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 text-center p-4">
+      <div className="bg-white p-8 rounded-lg shadow-2xl max-w-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Application Not Configured</h1>
+        <p className="text-gray-600">
+          This application is missing a required API key. Without it, the AI features cannot be accessed.
+        </p>
+        <p className="text-sm text-gray-500 mt-4">
+          <strong>For developers:</strong> Please ensure the <code>API_KEY</code> environment variable is set correctly in your deployment environment (e.g., Netlify).
+        </p>
+      </div>
+    </div>
+  );
+
 const App: React.FC = () => {
+  if (!isApiKeySet) {
+    return <ApiKeyErrorScreen />;
+  }
+
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [originalPersonImage, setOriginalPersonImage] = useState<string | null>(null);
