@@ -3,6 +3,7 @@ import Header from './components/Header.tsx';
 import ImageUploader from './components/ImageUploader.tsx';
 import LoadingSpinner from './components/LoadingSpinner.tsx';
 import History, { HistoryItem, TemplateItem } from './components/History.tsx';
+import AdBanner from './components/AdBanner.tsx';
 import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions } from './services/geminiService.ts';
 
 interface BodyShapeResult {
@@ -941,7 +942,11 @@ const App: React.FC = () => {
         </div>
         </div>
         
-        <div className="mt-8 text-center w-full max-w-2xl mx-auto flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0">
+        <div className="mt-8 w-full max-w-2xl mx-auto">
+          <AdBanner />
+        </div>
+        
+        <div className="mt-6 text-center w-full max-w-2xl mx-auto flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0">
           <button
             onClick={handleTryOn}
             disabled={!personImage || !hasAnyClothingItem || isLoading || isRemovingBackground || isEnhancing}
