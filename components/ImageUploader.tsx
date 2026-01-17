@@ -1,5 +1,5 @@
+
 import React, { useRef, useCallback, useState } from 'react';
-import ImageCropper from './ImageCropper.tsx';
 
 const UploadIcon: React.FC = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -38,7 +38,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [cropImage, setCropImage] = useState<string | null>(null);
 
     const handleFileChange = useCallback((files: FileList | null) => {
         if (files && files[0]) {
@@ -47,18 +46,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const result = e.target?.result as string;
-                    // For accessory items that are typically square, we want to enforce a crop.
-                    // This gives the user more control over the final look.
-                    if (aspectRatio === 1 && id !== 'person-uploader' && id !== 'background-uploader') {
-                      setCropImage(result);
-                    } else {
-                      onImageSelect(result);
-                    }
+                    // Immediately populate the placeholder without requiring confirmation/crop
+                    onImageSelect(result);
                 };
                 reader.readAsDataURL(file);
             }
         }
-    }, [onImageSelect, aspectRatio, id]);
+    }, [onImageSelect]);
 
     const onButtonClick = () => {
         fileInputRef.current?.click();
@@ -82,15 +76,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         setIsDragging(false);
         handleFileChange(e.dataTransfer.files);
     }, [handleFileChange]);
-
-    const handleCropConfirm = (croppedDataUrl: string) => {
-      onImageSelect(croppedDataUrl);
-      setCropImage(null);
-    };
-
-    const handleCropCancel = () => {
-      setCropImage(null);
-    };
     
     const uploaderContent = (
       <>
@@ -159,13 +144,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
                   {uploaderContent}
                 </div>
             </div>
-            {cropImage && (
-              <ImageCropper
-                imageSrc={cropImage}
-                onCrop={handleCropConfirm}
-                onCancel={handleCropCancel}
-              />
-            )}
         </div>
     );
 };

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header.tsx';
 import ImageUploader from './components/ImageUploader.tsx';
 import LoadingSpinner from './components/LoadingSpinner.tsx';
 import History, { HistoryItem, TemplateItem } from './components/History.tsx';
-import AdBanner from './components/AdBanner.tsx';
 import { virtualTryOn, removeBackground, editImage, detectBodyShape, enhanceImageQuality, getStylingSuggestions, StylingSuggestions, isApiKeySet } from './services/geminiService.ts';
 
 interface BodyShapeResult {
@@ -131,6 +131,9 @@ const App: React.FC = () => {
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState<boolean>(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
 
+  // Ref for auto-scrolling to results
+  const resultsSectionRef = useRef<HTMLDivElement>(null);
+
   // Effect to cycle through loading messages for inline processes
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -169,6 +172,7 @@ const App: React.FC = () => {
     loadFromStorage('outfit-ai-history', setHistory, 'history');
     loadFromStorage('outfit-ai-customizations', setCustomizations, 'customizations');
     loadFromStorage('outfit-ai-templates', setTemplates, 'templates');
+    setIsInitialLoad(false);
   }, []);
 
   // Helper to update person image and its derived state (aspect ratio, dimensions)
@@ -181,76 +185,14 @@ const App: React.FC = () => {
     img.src = dataUrl;
     setPersonImage(dataUrl);
   };
-  
-  // Load saved session on initial mount
-  useEffect(() => {
-    try {
-        const savedSession = localStorage.getItem('outfit-ai-current-session');
-        if (savedSession) {
-            const parsedSession = JSON.parse(savedSession);
-            if (parsedSession.personImage) {
-                updatePersonImageState(parsedSession.personImage);
-            }
-            setBackgroundImage(parsedSession.backgroundImage || null);
-            if (parsedSession.backgroundImage) {
-              setShowBackgroundUploader(true);
-            }
-            if(parsedSession.originalPersonImage) {
-                setOriginalPersonImage(parsedSession.originalPersonImage);
-            }
-            setTopImage(parsedSession.topImage || null);
-            setBottomImage(parsedSession.bottomImage || null);
-            setSuitJacketImage(parsedSession.suitJacketImage || null);
-            setVestImage(parsedSession.vestImage || null);
-            setOuterwearImage(parsedSession.outerwearImage || null);
-            setFootwearImage(parsedSession.footwearImage || null);
-            setCapImage(parsedSession.capImage || null);
-            setWatchImage(parsedSession.watchImage || null);
-            setSunglassesImage(parsedSession.sunglassesImage || null);
-            setTieImage(parsedSession.tieImage || null);
-            setScarfImage(parsedSession.scarfImage || null);
-            setIsSuitButtoned(parsedSession.isSuitButtoned ?? true);
-        }
-    } catch (e) {
-        console.error('Failed to load session from local storage:', e);
-        localStorage.removeItem('outfit-ai-current-session'); // Clear potentially corrupted data
-    } finally {
-        setIsInitialLoad(false);
-    }
-  }, []); // Empty array ensures this runs only once on mount
 
-  // Save current session on change
+  // Auto-scroll when result image is generated
   useEffect(() => {
-    if (isInitialLoad) return; // Don't save the initial empty state before loading
-
-    try {
-        const sessionToSave = {
-            personImage,
-            backgroundImage,
-            originalPersonImage,
-            topImage,
-            bottomImage,
-            suitJacketImage,
-            vestImage,
-            outerwearImage,
-            footwearImage,
-            capImage,
-            watchImage,
-            sunglassesImage,
-            tieImage,
-            scarfImage,
-            isSuitButtoned,
-        };
-        localStorage.setItem('outfit-ai-current-session', JSON.stringify(sessionToSave));
-    } catch (e) {
-        console.error('Failed to save session to local storage:', e);
+    if (resultImage && !isInitialLoad && !isLoading && resultsSectionRef.current) {
+        resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [
-    personImage, backgroundImage, originalPersonImage, topImage, bottomImage, suitJacketImage, 
-    vestImage, outerwearImage, footwearImage, capImage, watchImage, sunglassesImage, 
-    tieImage, scarfImage, isSuitButtoned, isInitialLoad
-  ]);
-  
+  }, [resultImage, isInitialLoad, isLoading]);
+
   const saveToStorage = (key: string, data: any, name: string) => {
     try {
         localStorage.setItem(key, JSON.stringify(data));
@@ -356,6 +298,31 @@ const App: React.FC = () => {
 
   const hasAnyClothingItem = topImage || bottomImage || suitJacketImage || vestImage || outerwearImage || footwearImage || capImage || watchImage || sunglassesImage || tieImage || scarfImage;
 
+  /**
+   * Automatically clears all input images so the user starts fresh for the next one.
+   * Does not clear the result image or its metadata.
+   */
+  const clearInputs = () => {
+    setPersonImage(null);
+    setBackgroundImage(null);
+    setTopImage(null);
+    setBottomImage(null);
+    setSuitJacketImage(null);
+    setVestImage(null);
+    setOuterwearImage(null);
+    setFootwearImage(null);
+    setCapImage(null);
+    setWatchImage(null);
+    setSunglassesImage(null);
+    setTieImage(null);
+    setScarfImage(null);
+    setOriginalPersonImage(null);
+    setBodyShapeResult(null);
+    setShapeDetectionError(null);
+    setIsSuitButtoned(true);
+    setShowBackgroundUploader(false);
+  };
+
   const handleTryOn = async () => {
     if (!personImage || !hasAnyClothingItem || !personImageDimensions) {
       setError('Please upload a person and at least one clothing or accessory item.');
@@ -412,8 +379,8 @@ const App: React.FC = () => {
       if (result.image) {
         const resultImageUrl = `data:image/png;base64,${result.image}`;
         setResultImage(resultImageUrl);
-        setEditHistory([resultImageUrl]); // Reset edit history with the new image
-        setCurrentEditIndex(0); // Point to the start of the new history
+        setEditHistory([resultImageUrl]); 
+        setCurrentEditIndex(0); 
 
         const newHistoryItem: HistoryItem = {
           id: new Date().toISOString(),
@@ -436,6 +403,9 @@ const App: React.FC = () => {
         };
         setHistory(prevHistory => [newHistoryItem, ...prevHistory].slice(0, MAX_HISTORY_ITEMS));
 
+        // Clear all input items after generation as per request
+        clearInputs();
+
         // Asynchronously fetch styling suggestions
         try {
             setIsGeneratingSuggestions(true);
@@ -444,7 +414,6 @@ const App: React.FC = () => {
                 { base64: result.image, mimeType: 'image/png' }
             );
             setStylingSuggestions(suggestions);
-            // Update the latest history item with the new suggestions
             setHistory(prev => {
                 const latestHistory = [...prev];
                 if (latestHistory.length > 0) {
@@ -490,14 +459,11 @@ const App: React.FC = () => {
             const newImageUrl = `data:image/png;base64,${result.image}`;
             setResultImage(newImageUrl);
 
-             // Update edit history
             const newHistory = editHistory.slice(0, currentEditIndex + 1);
             newHistory.push(newImageUrl);
             setEditHistory(newHistory);
             setCurrentEditIndex(newHistory.length - 1);
 
-
-            // Update the most recent history item with the edited image
             setHistory(prevHistory => {
               if (prevHistory.length === 0) {
                 return prevHistory;
@@ -548,36 +514,18 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    setPersonImage(null);
-    setBackgroundImage(null);
-    setTopImage(null);
-    setBottomImage(null);
-    setSuitJacketImage(null);
-    setVestImage(null);
-    setOuterwearImage(null);
-    setFootwearImage(null);
-    setCapImage(null);
-    setWatchImage(null);
-    setSunglassesImage(null);
-    setTieImage(null);
-    setScarfImage(null);
-    setOriginalPersonImage(null);
+    clearInputs();
     setResultImage(null);
     setGeneratedText(null);
     setError(null);
     setPersonImageAspectRatio(null);
     setPersonImageDimensions(null);
     setEditPrompt('');
-    setBodyShapeResult(null);
-    setShapeDetectionError(null);
     setStylingSuggestions(null);
     setIsGeneratingSuggestions(false);
     setSuggestionsError(null);
     setEditHistory([]);
     setCurrentEditIndex(-1);
-    setIsSuitButtoned(true);
-    setShowBackgroundUploader(false);
-    localStorage.removeItem('outfit-ai-current-session');
   };
 
   const handleDownload = () => {
@@ -591,28 +539,18 @@ const App: React.FC = () => {
   };
 
   const handleSaveCustomization = () => {
-    if (!resultImage || !personImage || !hasAnyClothingItem) {
-      alert("Cannot save, result image or inputs are missing.");
+    if (!resultImage) {
+      alert("No result image to save.");
       return;
     }
+    // Note: Since we clear inputs after generation, we'd need to keep a snapshot if we wanted to save the input source.
+    // For simplicity, we save based on what's available in the latest history item or just the result.
+    const latestItem = history[0];
+    if (!latestItem) return;
+
     const newCustomization: HistoryItem = {
-      id: new Date().toISOString(),
-      personImage,
-      backgroundImage,
-      topImage,
-      bottomImage,
-      suitJacketImage,
-      vestImage,
-      outerwearImage,
-      footwearImage,
-      capImage,
-      watchImage,
-      sunglassesImage,
-      tieImage,
-      scarfImage,
-      resultImage,
-      generatedText,
-      stylingSuggestions,
+      ...latestItem,
+      id: new Date().toISOString()
     };
     setCustomizations(prev => [newCustomization, ...prev].slice(0, MAX_CUSTOMIZATION_ITEMS));
     alert("Outfit saved!");
@@ -666,11 +604,7 @@ const App: React.FC = () => {
   const handleSelectHistoryItem = (item: HistoryItem) => {
     updatePersonImageState(item.personImage);
     setBackgroundImage(item.backgroundImage ?? null);
-    if (item.backgroundImage) {
-        setShowBackgroundUploader(true);
-    } else {
-        setShowBackgroundUploader(false);
-    }
+    setShowBackgroundUploader(!!item.backgroundImage);
     setTopImage(item.topImage ?? null);
     setBottomImage(item.bottomImage ?? null);
     setSuitJacketImage(item.suitJacketImage ?? null);
@@ -687,9 +621,9 @@ const App: React.FC = () => {
     setStylingSuggestions(item.stylingSuggestions ?? null);
     setOriginalPersonImage(null);
     setError(null);
-    setEditHistory([item.resultImage]); // Reset edit history for the selected item
+    setEditHistory([item.resultImage]); 
     setCurrentEditIndex(0);
-    setIsHistoryOpen(false); // Close panel on selection
+    setIsHistoryOpen(false); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
@@ -705,7 +639,7 @@ const App: React.FC = () => {
     setSunglassesImage(item.sunglassesImage ?? null);
     setTieImage(item.tieImage ?? null);
     setScarfImage(item.scarfImage ?? null);
-    setIsHistoryOpen(false); // Close panel on selection
+    setIsHistoryOpen(false); 
   };
 
   const handleDeleteHistoryItem = (id: string) => {
@@ -760,10 +694,10 @@ const App: React.FC = () => {
       <Header onToggleHistory={toggleHistory} />
       <main className="w-full max-w-7xl mx-auto flex flex-col items-center flex-grow py-8 px-4">
         <div className="w-full flex flex-col lg:flex-row lg:justify-center lg:space-x-8 space-y-8 lg:space-y-0 p-4">
-          <div className="w-full max-w-sm mx-auto flex-shrink-0 flex flex-col items-center space-y-4">
+          <div className="w-full max-sm mx-auto flex-shrink-0 flex flex-col items-center space-y-4">
             <div className="w-full space-y-4">
               <div className="bg-white p-4 rounded-lg shadow-inner border border-gray-200">
-                <p className="block text-lg font-medium text-gray-700 mb-4 text-center">1. Add a person</p>
+                <p className="block text-lg font-medium text-gray-700 mb-4 text-center">Add a person</p>
                 <div className="relative w-full">
                   <ImageUploader 
                     id="person-uploader" 
@@ -840,7 +774,7 @@ const App: React.FC = () => {
                     className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label htmlFor="background-toggle" className="text-lg font-medium text-gray-700 select-none cursor-pointer">
-                    2. Add Background (Optional)
+                    Add Background (Optional)
                   </label>
                 </div>
                 {showBackgroundUploader && (
@@ -916,7 +850,7 @@ const App: React.FC = () => {
           </div>
           <div className="w-full lg:max-w-lg mx-auto flex-shrink-0">
             <div className="bg-white p-4 rounded-lg shadow-inner border border-gray-200">
-                <p className="block text-lg font-medium text-gray-700 mb-4 text-center">3. Build Your Outfit</p>
+                <p className="block text-lg font-medium text-gray-700 mb-4 text-center">Build Your Outfit</p>
                 <div className="grid grid-cols-2 gap-4 items-end">
                     <ImageUploader id="top-uploader" label="Top / Shirt" imageSrc={topImage} onImageSelect={setTopImage} aspectRatio={1} tooltipText="Upload a clear image of a shirt, t-shirt, or other top wear." />
                     <ImageUploader id="bottom-uploader" label="Bottom" imageSrc={bottomImage} onImageSelect={setBottomImage} aspectRatio={1} tooltipText="Provide a photo of pants, jeans, a skirt, or shorts."/>
@@ -963,10 +897,6 @@ const App: React.FC = () => {
         </div>
         </div>
         
-        <div className="mt-8 w-full max-w-2xl mx-auto">
-          <AdBanner />
-        </div>
-        
         <div className="mt-6 text-center w-full max-w-2xl mx-auto flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0">
           <button
             onClick={handleTryOn}
@@ -1008,7 +938,7 @@ const App: React.FC = () => {
         )}
 
         {resultImage && (
-          <div className="mt-12 w-full max-w-2xl mx-auto animate-fade-in-opacity bg-white p-4 sm:p-8 rounded-2xl border border-gray-200 shadow-lg">
+          <div ref={resultsSectionRef} className="mt-12 w-full max-w-2xl mx-auto animate-fade-in-opacity bg-white p-4 sm:p-8 rounded-2xl border border-gray-200 shadow-lg">
             <h3 className="text-3xl font-bold text-center text-gray-900 mb-8">Your Virtual Try-On Results</h3>
             <div className="flex justify-center">
               {/* Generated Result */}
