@@ -120,16 +120,16 @@ export const virtualTryOn = async (
 
       // CRITICAL: Strictly maintain the source image composition
       promptSegments.push(
-        `STRICT REQUIREMENT: You must maintain the EXACT pose, position, orientation, and zoom level of the person from Image ${personImageIndex}. DO NOT zoom in or out. DO NOT change the person's posture or skeletal alignment. The person must remain at the same coordinate location within the frame.`
+        `STRICT FRAME CONSISTENCY REQUIREMENT: You must maintain the EXACT pose, scale, position, and vertical/horizontal alignment of the person from Image ${personImageIndex}. DO NOT zoom in or crop the person. If the person's feet or head are visible in Image ${personImageIndex}, they MUST be visible in the same location in the output. The output MUST NOT change the aspect ratio or focal length of the original shot.`
       );
 
       if (backgroundImageBase64) {
         promptSegments.push(
-            `Extract the person from Image ${personImageIndex}, drape them realistically with the provided clothing items, and place them onto the background from Image 1. Ensure the final result maintains the person's exact scale and posture relative to the original frame.`
+            `Extract the person from Image ${personImageIndex}, drape them realistically with the provided clothing items, and place them onto the background from Image 1. Ensure the final result maintains the person's exact scale and posture relative to the original frame. DO NOT cut off the feet or footwear.`
         );
       } else {
         promptSegments.push(
-            `Simply drape the provided clothing and accessories realistically onto the person in Image ${personImageIndex}. Keep the person's background, hair, hands, and facial features identical. The output should look like the same photo, but with the new clothes perfectly fitted to the person's body.`
+            `Simply drape the provided clothing and accessories realistically onto the person in Image ${personImageIndex}. Keep the person's background, hair, hands, and facial features identical. The output must be a pixel-perfect match for the framing of Image ${personImageIndex}, essentially only changing the clothing layers without any camera movement, zooming, or re-centering.`
         );
       }
   

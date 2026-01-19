@@ -891,7 +891,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
+          </div>
         </div>
         
         <div className="mt-6 text-center w-full max-w-2xl mx-auto flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0">
