@@ -224,10 +224,10 @@ const App: React.FC = () => {
     img.onload = () => {
         // Check if image is low quality
         if (img.naturalWidth < LOW_QUALITY_THRESHOLD || img.naturalHeight < LOW_QUALITY_THRESHOLD) {
-            setPersonImage(dataUrl); // Set image to show thumbnail
-            setShowEnhancePrompt(true); // Show the enhancement prompt
+            setPersonImage(dataUrl); 
+            setShowEnhancePrompt(true); 
         } else {
-            updatePersonImageState(dataUrl); // High quality, proceed normally
+            updatePersonImageState(dataUrl); 
         }
     };
     img.src = dataUrl;
@@ -251,7 +251,6 @@ const App: React.FC = () => {
     } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during image enhancement.';
         setError(errorMessage);
-        // Fallback to using the original image if enhancement fails
         updatePersonImageState(personImage); 
     } finally {
         setIsEnhancing(false);
@@ -269,7 +268,7 @@ const App: React.FC = () => {
 
     setIsRemovingBackground(true);
     setError(null);
-    setOriginalPersonImage(personImage); // Save the original image
+    setOriginalPersonImage(personImage); 
 
     try {
         const imageBase64 = personImage.split(',')[1];
@@ -282,7 +281,7 @@ const App: React.FC = () => {
     } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during background removal.';
         setError(errorMessage);
-        setOriginalPersonImage(null); // Clear original on failure
+        setOriginalPersonImage(null); 
         console.error(e);
     } finally {
         setIsRemovingBackground(false);
@@ -543,8 +542,6 @@ const App: React.FC = () => {
       alert("No result image to save.");
       return;
     }
-    // Note: Since we clear inputs after generation, we'd need to keep a snapshot if we wanted to save the input source.
-    // For simplicity, we save based on what's available in the latest history item or just the result.
     const latestItem = history[0];
     if (!latestItem) return;
 

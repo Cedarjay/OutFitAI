@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -7,8 +6,6 @@ const API_KEY = process.env.API_KEY;
 // Check if the API key is present and not the placeholder value from index.html
 export const isApiKeySet = !!API_KEY && API_KEY !== 'API_KEY';
 
-// The GoogleGenAI constructor can handle a falsy or placeholder key; API calls will fail gracefully.
-// This prevents the app from crashing on load if the key isn't set.
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 interface TryOnResult {
@@ -85,7 +82,7 @@ export const virtualTryOn = async (
           mimeType: personImageMimeType,
         },
       });
-      promptSegments.push(`Image ${imageCounter} contains a person.`);
+      promptSegments.push(`Image ${imageCounter} contains the person.`);
       const personImageIndex = imageCounter;
       imageCounter++;
   
@@ -121,26 +118,31 @@ export const virtualTryOn = async (
           }
       }
 
+      // CRITICAL: Strictly maintain the source image composition
+      promptSegments.push(
+        `STRICT REQUIREMENT: You must maintain the EXACT pose, position, orientation, and zoom level of the person from Image ${personImageIndex}. DO NOT zoom in or out. DO NOT change the person's posture or skeletal alignment. The person must remain at the same coordinate location within the frame.`
+      );
+
       if (backgroundImageBase64) {
         promptSegments.push(
-            `Generate a new image showing the person from Image ${personImageIndex} wearing the provided clothing items and accessories, placed realistically onto the background scene from Image 1. The new image should be a realistic depiction, maintaining the person's pose but replacing their original background.`
+            `Extract the person from Image ${personImageIndex}, drape them realistically with the provided clothing items, and place them onto the background from Image 1. Ensure the final result maintains the person's exact scale and posture relative to the original frame.`
         );
       } else {
         promptSegments.push(
-            `Generate a new image showing the person from the first image wearing the provided clothing items and accessories. The new image should be a realistic depiction, maintaining the person's pose and background as much as possible, but adding the new items appropriately.`
+            `Simply drape the provided clothing and accessories realistically onto the person in Image ${personImageIndex}. Keep the person's background, hair, hands, and facial features identical. The output should look like the same photo, but with the new clothes perfectly fitted to the person's body.`
         );
       }
   
       if (isSuitButtoned !== null) {
         if (isSuitButtoned) {
-            promptSegments.push('The suit jacket is buttoned up, which may partially obscure the vest underneath.');
+            promptSegments.push('The suit jacket must be shown as buttoned.');
         } else {
-            promptSegments.push('The suit jacket is unbuttoned to clearly show the vest underneath.');
+            promptSegments.push('The suit jacket must be shown as unbuttoned to reveal the layers beneath.');
         }
       }
       
       promptSegments.push(
-        `The output image must have the exact same dimensions as the original person image: ${outputWidth} pixels wide and ${outputHeight} pixels high. The output should only be the final image.`
+        `The output image must have the exact same dimensions: ${outputWidth}x${outputHeight}. Output only the final image data.`
       );
       
       const textPart = { text: promptSegments.join(' ') };
@@ -156,10 +158,7 @@ export const virtualTryOn = async (
       });
   
       if (!response.candidates || response.candidates.length === 0) {
-          if (response.promptFeedback?.blockReason) {
-              throw new Error(`Request was blocked due to safety policies: ${response.promptFeedback.blockReason}. Please use different images.`);
-          }
-          throw new Error('The API returned an empty response. Please try again.');
+          throw new Error('Empty response from AI.');
       }
   
       const candidate = response.candidates[0];
@@ -177,23 +176,11 @@ export const virtualTryOn = async (
           return { image: resultImage, text: null };
       }
   
-      if (candidate.finishReason === 'SAFETY') {
-          const safetyInfo = candidate.safetyRatings?.map(rating => `${rating.category.replace('HARM_CATEGORY_', '')}: ${rating.probability}`).join(', ');
-          throw new Error(`Image generation was blocked due to safety policies. [Details: ${safetyInfo || 'Not available'}]`);
-      }
-  
-      if (candidate.finishReason === 'RECITATION') {
-          throw new Error('Image generation failed due to the recitation policy. The output may have included copyrighted material.');
-      }
-  
-      throw new Error('The AI model did not return an image. This can happen for various reasons. Please try a different combination of images.');
+      throw new Error('Generation failed to return image data.');
   
     } catch (error) {
       console.error("Error calling Gemini API:", error);
-      if (error instanceof Error) {
-          throw new Error(`Failed to generate image: ${error.message}`);
-      }
-      throw new Error('An unexpected error occurred while communicating with the API.');
+      throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -212,18 +199,11 @@ export const removeBackground = async (
         });
 
         if (!response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-            if (response.promptFeedback?.blockReason) {
-                throw new Error(`Background removal blocked: ${response.promptFeedback.blockReason}.`);
-            }
-            if (response.candidates?.[0]?.finishReason === 'SAFETY') {
-                throw new Error('Background removal blocked due to safety policies.');
-            }
             throw new Error('AI model did not return an image for background removal.');
         }
 
         return response.candidates[0].content.parts[0].inlineData.data;
     } catch (error) {
-        console.error("Error during background removal:", error);
         throw new Error(`Failed to remove background: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
     }
 };
@@ -259,15 +239,11 @@ export const editImage = async (
       }
       
       if (!resultImage) {
-        if (candidate.finishReason === 'SAFETY') {
-           throw new Error(`Image editing was blocked due to safety policies.`);
-        }
         throw new Error('The AI model did not return an edited image.');
       }
 
       return { image: resultImage, text: resultText };
     } catch (error) {
-      console.error("Error calling Gemini API for image editing:", error);
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
     }
   };
@@ -278,7 +254,7 @@ export const detectBodyShape = async (
   ): Promise<BodyShapeResult> => {
     try {
       const imagePart = { inlineData: { data: imageBase64, mimeType } };
-      const textPart = { text: 'Analyze the person in the image to determine their body shape (e.g., Rectangle, Triangle, Hourglass, Inverted Triangle, Round). Your response should be positive, empowering, and based on common fashion principles to enhance their natural silhouette. Provide detailed and diverse styling suggestions that are both classic and trendy, offering a few different options for each category. Return a single JSON object with the following keys: "shape", "summary" (a brief, encouraging summary of the styling goal), "tops" (detailed suggestions for flattering tops, including necklines, sleeves, and fits), "bottoms" (detailed suggestions for pants and skirts, mentioning specific cuts and styles), "dressesAndJumpsuits" (suggestions for dresses and jumpsuits that complement the shape), and "generalTips" (a few key principles or accessory tips to always keep in mind to celebrate this body shape).' };
+      const textPart = { text: 'Analyze the person in the image to determine their body shape. Return a single JSON object with keys: "shape", "summary", "tops", "bottoms", "dressesAndJumpsuits", "generalTips".' };
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -300,23 +276,8 @@ export const detectBodyShape = async (
         },
       });
 
-      const jsonStr = response.text.trim();
-      const result = JSON.parse(jsonStr);
-
-      if (
-        typeof result.shape === 'string' &&
-        typeof result.summary === 'string' &&
-        typeof result.tops === 'string' &&
-        typeof result.bottoms === 'string' &&
-        typeof result.dressesAndJumpsuits === 'string' &&
-        typeof result.generalTips === 'string'
-      ) {
-        return result;
-      } else {
-        throw new Error('Invalid JSON schema in API response.');
-      }
+      return JSON.parse(response.text.trim());
     } catch (error) {
-      console.error("Error detecting body shape:", error);
       throw new Error(`Failed to detect body shape: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
     }
   };
@@ -327,7 +288,7 @@ export const enhanceImageQuality = async (
 ): Promise<string> => {
     try {
         const imagePart = { inlineData: { data: imageBase64, mimeType } };
-        const textPart = { text: "Enhance the resolution and quality of this image, making it sharper and more detailed. Do not alter the content, pose, or background. Output only the final, enhanced image." };
+        const textPart = { text: "Enhance resolution. Sharpness and detail. Output only image." };
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
@@ -336,18 +297,11 @@ export const enhanceImageQuality = async (
         });
 
         if (!response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-            if (response.promptFeedback?.blockReason) {
-                throw new Error(`Image enhancement blocked: ${response.promptFeedback.blockReason}.`);
-            }
-            if (response.candidates?.[0]?.finishReason === 'SAFETY') {
-                throw new Error('Image enhancement blocked due to safety policies.');
-            }
             throw new Error('AI model did not return an image for enhancement.');
         }
 
         return response.candidates[0].content.parts[0].inlineData.data;
     } catch (error) {
-        console.error("Error during image enhancement:", error);
         throw new Error(`Failed to enhance image: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
     }
 };
@@ -359,13 +313,13 @@ export const getStylingSuggestions = async (
     try {
       const personImagePart = { inlineData: { data: personImage.base64, mimeType: personImage.mimeType } };
       const resultImagePart = { inlineData: { data: resultImage.base64, mimeType: resultImage.mimeType } };
-      const textPart = { text: "Image 1 is the original person. Image 2 is the virtual try-on result showing them in a new outfit. Based on these two images, act as a friendly and encouraging personal stylist. Provide detailed, personalized styling suggestions for the outfit in Image 2. For each category (color palette, occasion, accessories, overall tip), provide a main suggestion and a detailed explanation. The explanation should justify the suggestion (e.g., why the colors work, why the accessories are a good match). Keep the tone positive and insightful. Return a single JSON object where each key ('colorPalette', 'occasion', 'accessories', 'overallTip') maps to an object with two string keys: 'suggestion' and 'explanation'." };
+      const textPart = { text: "Analyze the outfit in Image 2. Provide styling advice. Return JSON with keys: colorPalette, occasion, accessories, overallTip (each having suggestion and explanation keys)." };
   
       const suggestionDetailSchema = {
         type: Type.OBJECT,
         properties: {
-            suggestion: { type: Type.STRING, description: "The main styling suggestion." },
-            explanation: { type: Type.STRING, description: "A detailed explanation of why the suggestion works." },
+            suggestion: { type: Type.STRING },
+            explanation: { type: Type.STRING },
         },
         required: ["suggestion", "explanation"],
       };
@@ -388,25 +342,8 @@ export const getStylingSuggestions = async (
         },
       });
   
-      const jsonStr = response.text.trim();
-      const result = JSON.parse(jsonStr);
-
-      const isSuggestionDetail = (obj: any): obj is StylingSuggestionDetail => {
-        return obj && typeof obj.suggestion === 'string' && typeof obj.explanation === 'string';
-      };
-  
-      if (
-        isSuggestionDetail(result.colorPalette) &&
-        isSuggestionDetail(result.occasion) &&
-        isSuggestionDetail(result.accessories) &&
-        isSuggestionDetail(result.overallTip)
-      ) {
-        return result;
-      } else {
-        throw new Error('Invalid JSON schema in API response for styling suggestions.');
-      }
+      return JSON.parse(response.text.trim());
     } catch (error) {
-      console.error("Error getting styling suggestions:", error);
       throw new Error(`Failed to get styling suggestions: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
     }
   };
